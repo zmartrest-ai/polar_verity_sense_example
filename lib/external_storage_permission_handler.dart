@@ -5,7 +5,7 @@ class ExternalStoragePermissionHandler {
   static Future<void> requestExternalStoragePermissions() async {
     if (await Permission.storage.request().isGranted) {
       // Permission granted, proceed with exporting
-      await exportDatabase();
+      await DataHandler.exportDatabase();
     } else {
       print('Storage permission not granted');
     }

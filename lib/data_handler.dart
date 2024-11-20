@@ -1,102 +1,135 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
-import 'dart:math';
-
-class DatabaseHelper {
-  // Initialization function for GetIt registration
-  static Future<Database> initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'polar_sqlite_database.db');
-
-    return openDatabase(
-      path,
-      onCreate: (db, version) async {
-        await db.execute(
-          'CREATE TABLE IF NOT EXISTS acc_raw(timestamp INTEGER PRIMARY KEY, x DOUBLE NOT NULL, y DOUBLE NOT NULL, z DOUBLE NOT NULL)',
-        );
-        await db.execute(
-          'CREATE TABLE IF NOT EXISTS acc(timestamp INTEGER PRIMARY KEY, x DOUBLE NOT NULL, y DOUBLE NOT NULL, z DOUBLE NOT NULL)',
-        );
-        await db.execute(
-          'CREATE TABLE IF NOT EXISTS hr(timestamp INTEGER PRIMARY KEY, rToRInterval INTEGER NOT NULL, heartRate INTEGER NOT NULL)',
-        );
-      },
-      version: 1,
-    );
-  }
-}
-
-Future<String> getDatabasePath() async {
-  // Get the default databases directory path
-  final databasesPath = await getDatabasesPath();
-
-  // Replace with your actual database name
-  String dbName = 'polar_sqlite_database.db';
-
-  // Return the full path to the database file
-  return join(databasesPath, dbName);
-}
-
-Future<void> exportDatabase() async {
-  try {
-    // Get the path of the existing database
-    String dbPath = await getDatabasePath();
-
-    // Check if the database exists
-    if (await File(dbPath).exists()) {
-      // Use the Downloads directory for easier access
-      Directory? externalDirectory = await getExternalStorageDirectory();
-
-      // Fallback to Downloads folder if the path is not accessible
-      String downloadsPath =
-          '/storage/emulated/0/Download/exported_polar_sqlite_database.db';
-
-      // Copy the database file to the Downloads directory
-      await File(dbPath).copy(downloadsPath);
-
-      print('Database exported to: $downloadsPath');
-    } else {
-      print('Database file does not exist.');
-    }
-  } catch (e) {
-    print('Error exporting database: $e');
-  }
-}
+import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 
 class DataHandler {
-  static final List<Map<String, dynamic>> _accBuffer = [];
-  static final List<Map<String, dynamic>> _hrBuffer = [];
-  static const int _bufferSize = 50;
-  static const int _windowIntervalMillis = 5000; // 5 seconds
+  static IList<Map<String, dynamic>> _accBuffer = IList();
+  static IList<Map<String, dynamic>> _hrBuffer = IList();
 
-  // Adding accelerometer data
+  static const int _bufferSize = 50;
+  static const int _windowIntervalMillis = 5000;
+  static bool _isInserting = false;
+
+  // Initialize the database
+  static Future<Database> initDatabase() async {
+    final dbPath = await getDatabasePath();
+    return openDatabase(
+      dbPath,
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE acc_raw (
+            timestamp INTEGER PRIMARY KEY,
+            x REAL,
+            y REAL,
+            z REAL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE acc (
+            timestamp INTEGER PRIMARY KEY,
+            x REAL,
+            y REAL,
+            z REAL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE hr (
+            timestamp INTEGER PRIMARY KEY,
+            rToRInterval INTEGER,
+            heartRate INTEGER
+          )
+        ''');
+      },
+    );
+  }
+
+  // Flush any remaining buffered data to the database
+  static Future<void> flushData() async {
+    await _insertAccBatch();
+    await _insertHrBatch();
+  }
+
+  // Clear all data from the database tables
+  static Future<void> clearDatabase() async {
+    final db = GetIt.instance<Database>();
+
+    try {
+      await db.transaction((txn) async {
+        await txn.delete('acc_raw');
+        await txn.delete('acc');
+        await txn.delete('hr');
+      });
+      print('Database cleared successfully.');
+    } catch (e) {
+      print('Error clearing database: $e');
+    }
+  }
+
   static Future<void> addAccData(
       int timestamp, double x, double y, double z) async {
-    _accBuffer.add({'timestamp': timestamp, 'x': x, 'y': y, 'z': z});
+    _accBuffer =
+        _accBuffer.add({'timestamp': timestamp, 'x': x, 'y': y, 'z': z});
 
-    // Check if we have accumulated data over the 5-second interval
     if (_shouldInsertData()) {
       await _insertAccBatch();
     }
   }
 
-  // Checks if the buffer contains data over the 5-second interval
   static bool _shouldInsertData() {
     if (_accBuffer.isEmpty) return false;
-
-    // Get the timestamps of the first and last entries
     final firstTimestamp = _accBuffer.first['timestamp'] as int;
     final lastTimestamp = _accBuffer.last['timestamp'] as int;
-
-    // Check if the time difference exceeds 5 seconds (5000 ms)
     return (lastTimestamp - firstTimestamp) >= _windowIntervalMillis;
   }
 
-  // Helper function to calculate standard deviation
+  static Future<void> _insertAccBatch() async {
+    if (_accBuffer.isNotEmpty && !_isInserting) {
+      _isInserting = true;
+      final db = GetIt.instance<Database>();
+
+      final List<Map<String, dynamic>> accBufferClone = _accBuffer.unlock;
+
+      try {
+        await db.transaction((txn) async {
+          for (var data in accBufferClone) {
+            await txn.insert(
+              'acc_raw',
+              data,
+              conflictAlgorithm: ConflictAlgorithm.ignore,
+            );
+          }
+
+          final stdDevValues = _calculateStdDev(accBufferClone);
+          final avgTimestamp = (accBufferClone.first['timestamp'] +
+                  accBufferClone.last['timestamp']) ~/
+              2;
+          await txn.insert(
+            'acc',
+            {
+              'timestamp': avgTimestamp,
+              'x': stdDevValues['x'],
+              'y': stdDevValues['y'],
+              'z': stdDevValues['z'],
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        });
+
+        _accBuffer = _accBuffer.clear();
+      } catch (e) {
+        print('Error inserting accelerometer data: $e');
+      } finally {
+        _isInserting = false;
+      }
+    }
+  }
+
   static Map<String, double> _calculateStdDev(
       List<Map<String, dynamic>> buffer) {
     List<double> xValues = buffer.map((e) => e['x'] as double).toList();
@@ -110,7 +143,6 @@ class DataHandler {
     };
   }
 
-// Standard deviation calculation for a list of values
   static double _standardDeviation(List<double> values) {
     double mean = values.reduce((a, b) => a + b) / values.length;
     double sumOfSquares =
@@ -118,10 +150,9 @@ class DataHandler {
     return sqrt(sumOfSquares / values.length);
   }
 
-  // Adding heart rate data remains unchanged
   static Future<void> addHrData(
       int timestamp, int rToRInterval, int? heartRate) async {
-    _hrBuffer.add({
+    _hrBuffer = _hrBuffer.add({
       'timestamp': timestamp,
       'rToRInterval': rToRInterval,
       'heartRate': heartRate
@@ -132,47 +163,15 @@ class DataHandler {
     }
   }
 
-// Batch insert for accelerometer data
-  static Future<void> _insertAccBatch() async {
-    if (_accBuffer.isNotEmpty) {
-      final batchData = List<Map<String, dynamic>>.from(_accBuffer);
-      final db = GetIt.instance<Database>();
-
-      try {
-        await db.transaction((txn) async {
-          for (var data in batchData) {
-            await txn.insert(
-              'acc',
-              data,
-              conflictAlgorithm: ConflictAlgorithm.ignore,
-            );
-          }
-        });
-
-        // Log the number of items inserted
-        print('Inserted ${batchData.length} accelerometer data entries.');
-
-        // Clear only the inserted data, ensuring we don't exceed bounds
-        if (_accBuffer.length >= batchData.length) {
-          _accBuffer.removeRange(0, batchData.length);
-        } else {
-          _accBuffer.clear();
-        }
-      } catch (e) {
-        print('Error inserting accelerometer data: $e');
-      }
-    }
-  }
-
-// Batch insert for heart rate data
   static Future<void> _insertHrBatch() async {
     if (_hrBuffer.isNotEmpty) {
-      final batchData = List<Map<String, dynamic>>.from(_hrBuffer);
       final db = GetIt.instance<Database>();
 
       try {
+        final List<Map<String, dynamic>> hrBufferClone = _hrBuffer.unlock;
+
         await db.transaction((txn) async {
-          for (var data in batchData) {
+          for (var data in hrBufferClone) {
             await txn.insert(
               'hr',
               data,
@@ -181,27 +180,35 @@ class DataHandler {
           }
         });
 
-        // Clear only the inserted data, ensuring we don't exceed bounds
-        if (_hrBuffer.length >= batchData.length) {
-          _hrBuffer.removeRange(0, batchData.length);
-        } else {
-          _hrBuffer.clear();
-        }
+        _hrBuffer = _hrBuffer.clear();
       } catch (e) {
         print('Error inserting heart rate data: $e');
       }
     }
   }
 
-  // Flush remaining data in the buffers on app exit remains unchanged
-  static Future<void> flushData() async {
-    await _insertAccBatch();
-    await _insertHrBatch();
+  static Future<String> getDatabasePath() async {
+    final databasesPath = await getDatabasesPath();
+    String dbName = 'polar_sqlite_database.db';
+    return join(databasesPath, dbName);
   }
 
-  static Future<void> clearDatabase() async {
-    final db = GetIt.instance<Database>();
-    await db.delete('acc'); // Clear accelerometer data
-    await db.delete('hr'); // Clear heart rate data
+  static Future<void> exportDatabase() async {
+    try {
+      String dbPath = await getDatabasePath();
+
+      if (await File(dbPath).exists()) {
+        Directory? externalDirectory = await getExternalStorageDirectory();
+        String downloadsPath =
+            '/storage/emulated/0/Download/exported_polar_sqlite_database.db';
+
+        await File(dbPath).copy(downloadsPath);
+        print('Database exported to: $downloadsPath');
+      } else {
+        print('Database file does not exist.');
+      }
+    } catch (e) {
+      print('Error exporting database: $e');
+    }
   }
 }

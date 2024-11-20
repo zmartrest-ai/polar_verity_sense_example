@@ -9,10 +9,11 @@ void main() async {
 
   // Register the database singleton in GetIt
   GetIt.instance.registerSingletonAsync<Database>(() async {
-    return await DatabaseHelper.initDatabase();
+    return await DataHandler.initDatabase();
   });
 
   // Wait for the database to be initialized
   await GetIt.instance.allReady();
+
   runApp(const MyApp());
 }

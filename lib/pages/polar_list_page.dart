@@ -186,17 +186,39 @@ class _PolarListPageState extends State<PolarListPage>
 
     if (availableTypes.contains(PolarDataType.ppi)) {
       polar.startPpiStreaming(identifier.value).listen((e) {
-        final currentTimestamp = DateTime.now().millisecondsSinceEpoch;
-        const int estimatedIntervalMillis = 10;
+        // Get the baseline timestamp from the current time
+        final baselineTimestamp = DateTime.now().millisecondsSinceEpoch;
 
-        for (int i = 0; i < e.samples.length; i++) {
-          final sample = e.samples[i];
-          final estimatedSampleTimestamp = currentTimestamp -
-              (estimatedIntervalMillis * (e.samples.length - 1 - i));
+        // Initialize cumulative time offset
+        int cumulativePpiOffset = 0;
 
+        // Temporary list to store adjusted samples in forward-accumulating order
+        final List<Map<String, dynamic>> tempSamples = [];
+
+        for (var sample in e.samples) {
+          // Add the sample's PPI interval to the cumulative offset
+          cumulativePpiOffset += sample.ppi;
+
+          // Calculate the sample's adjusted timestamp
+          final adjustedTimestamp = baselineTimestamp - cumulativePpiOffset;
+
+          // Save the adjusted data in the temporary list
+          tempSamples.add({
+            'timestamp': adjustedTimestamp,
+            'ppi': sample.ppi,
+            'hr': sample.hr,
+          });
+        }
+
+        // Insert each sample in reverse order (oldest to newest)
+        for (var sampleData in tempSamples.reversed) {
           DataHandler.addHrData(
-              estimatedSampleTimestamp, sample.ppi, sample.hr);
-          // log('PPi: ${sample.ppi}, HR: ${sample.hr}, Estimated Time: $estimatedSampleTimestamp');
+            sampleData['timestamp'] as int,
+            sampleData['ppi'] as int,
+            sampleData['hr'] as int?,
+          );
+          print(
+              'PPI: ${sampleData['ppi']}, HR: ${sampleData['hr']}, Adjusted Time: ${sampleData['timestamp']}');
         }
       });
     }
