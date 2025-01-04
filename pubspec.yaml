@@ -35,7 +35,6 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.6
-  carp_polar_package: ^1.4.2
   polar: ^7.5.0
   signals: ^5.5.0
   fast_immutable_collections: ^10.2.4

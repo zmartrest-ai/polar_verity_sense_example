@@ -96,7 +96,7 @@ class _PolarListPageState extends State<PolarListPage>
               onPressed: () {
                 log('Connecting to device: ${identifier.value}');
                 polar.connectToDevice(identifier.value);
-                streamWhenReady();
+                // streamWhenReady();
               },
             ),
           ],
@@ -141,6 +141,58 @@ class _PolarListPageState extends State<PolarListPage>
                   },
                   child: const Text('Clear Database'),
                 ),
+                // ElevatedButton(
+                //   onPressed: () async {
+                //     // Request recording settings
+                //     var settings = await polar.requestOfflineRecordingSettings(
+                //         identifier.value, PolarDataType.acc);
+
+                //     // Start offline recording (with optional encryption)
+                //     await polar.startOfflineRecording(
+                //         identifier.value, PolarDataType.acc,
+                //         settings: settings);
+
+                //     log('Start Offline Recording');
+                //   },
+                //   child: const Text('Start Offline Recording'),
+                // ),
+                // ElevatedButton(
+                //   onPressed: () async {
+                //     // Stop recording
+                //     final status =
+                //         await polar.getOfflineRecordingStatus(identifier.value);
+
+                //     log('Get Recording Statis ${status.toString()}');
+                //   },
+                //   child: const Text('Get Recording Status'),
+                // ),
+                // ElevatedButton(
+                //   onPressed: () async {
+                //     // Stop recording
+                //     await polar.stopOfflineRecording(
+                //         identifier.value, PolarDataType.acc);
+
+                //     log('Stop Offline Recording');
+                //   },
+                //   child: const Text('Stop Offline Recording'),
+                // ),
+                // ElevatedButton(
+                //   onPressed: () async {
+                //     // Stop recording
+                //     var recordings =
+                //         await polar.listOfflineRecordings(identifier.value);
+
+                //     log('List Offline Recordings');
+                //     recordings.forEach((r) => log(r.toJson().toString()));
+
+                //     if (recordings.isNotEmpty) {
+                //       final record = await polar.getOfflineAccRecord(
+                //           identifier.value, recordings[0]);
+                //       print("Got here!");
+                //     }
+                //   },
+                //   child: const Text('List Offline Recordings'),
+                // ),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.all(10),

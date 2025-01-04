@@ -1,8 +1,7 @@
-import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 
 import 'package:polar_variety_sense_example/behavior/no_glow_on_scroll_behavior.dart';
+import 'package:polar_variety_sense_example/pages/example.dart';
 import 'package:polar_variety_sense_example/pages/polar_list_page.dart';
 
 /// The Widget that configures your application.
@@ -31,18 +30,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: false,
         primarySwatch: Colors.amber,
-        appBarTheme: AppBarTheme(
+        appBarTheme: const AppBarTheme(
           color: Colors.white,
           elevation: 0,
         ),
       ),
 
-      home: PolarListPage(),
+      home: const Example(),
       // Define a function to handle named routes in order to support
       // Flutter web url navigation and deep linking.
       onGenerateRoute: (RouteSettings routeSettings) {
-        final args = routeSettings.arguments;
-
         return MaterialPageRoute<void>(
           settings: routeSettings,
           builder: (BuildContext context) {
