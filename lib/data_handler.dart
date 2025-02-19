@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:get_it/get_it.dart';
 import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:fast_immutable_collections/fast_immutable_collections.dart';
 
@@ -42,7 +41,11 @@ class DataHandler {
           CREATE TABLE hr (
             timestamp INTEGER PRIMARY KEY,
             rToRInterval INTEGER,
-            heartRate INTEGER
+            heartRate INTEGER,
+            blockerBit INTEGER,
+            errorEstimate INTEGER,
+            skinContactStatus INTEGER,
+            skinContactSupported INTEGER
           )
         ''');
       },
@@ -151,11 +154,21 @@ class DataHandler {
   }
 
   static Future<void> addHrData(
-      int timestamp, int rToRInterval, int? heartRate) async {
+      int timestamp,
+      int rToRInterval,
+      int? heartRate,
+      bool blockerBit,
+      int errorEstimate,
+      bool skinContactStatus,
+      bool skinContactSupported) async {
     _hrBuffer = _hrBuffer.add({
       'timestamp': timestamp,
       'rToRInterval': rToRInterval,
-      'heartRate': heartRate
+      'heartRate': heartRate,
+      'errorEstimate': errorEstimate,
+      'blockerBit': blockerBit ? 1 : 0,
+      'skinContactStatus': skinContactStatus ? 1 : 0,
+      'skinContactSupported': skinContactSupported ? 1 : 0
     });
 
     if (_hrBuffer.length >= _bufferSize) {
@@ -198,7 +211,6 @@ class DataHandler {
       String dbPath = await getDatabasePath();
 
       if (await File(dbPath).exists()) {
-        Directory? externalDirectory = await getExternalStorageDirectory();
         String downloadsPath =
             '/storage/emulated/0/Download/exported_polar_sqlite_database.db';
 

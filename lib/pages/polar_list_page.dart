@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:polar/polar.dart';
 import 'package:polar_variety_sense_example/bluetooth_permission_handler.dart';
 import 'package:polar_variety_sense_example/data_handler.dart';
-import 'package:polar_variety_sense_example/enums.dart';
-import 'package:polar_variety_sense_example/external_storage_permission_handler.dart';
 import 'package:signals/signals_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 class PolarListPage extends StatefulWidget {
   const PolarListPage({super.key});
@@ -22,7 +19,6 @@ class _PolarListPageState extends State<PolarListPage>
   Signal<String> identifier = signal('');
   final polar = Polar();
   Signal<IList<String>> logs = signal(['Service started'].toIList());
-  PolarExerciseEntry? exerciseEntry;
 
   @override
   void initState() {
@@ -43,13 +39,14 @@ class _PolarListPageState extends State<PolarListPage>
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
 
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
       // Flush remaining data when the app goes to the background or is about to close
       DataHandler.flushData();
+      await polar.disconnectFromDevice(identifier.value);
     }
   }
 
@@ -62,16 +59,11 @@ class _PolarListPageState extends State<PolarListPage>
         appBar: AppBar(
           title: const Text('Polar Lib'),
           actions: [
-            PopupMenuButton(
-              itemBuilder: (context) => RecordingAction.values
-                  .map((e) => PopupMenuItem(value: e, child: Text(e.name)))
-                  .toList(),
-              onSelected: handleRecordingAction,
-              child: const IconButton(
-                icon: Icon(Icons.fiber_manual_record),
-                disabledColor: Colors.white,
-                onPressed: null,
-              ),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: () {
+                logs.value = [''].toIList();
+              },
             ),
             IconButton(
               icon: const Icon(Icons.stop),
@@ -93,10 +85,9 @@ class _PolarListPageState extends State<PolarListPage>
             ),
             IconButton(
               icon: const Icon(Icons.play_arrow),
-              onPressed: () {
+              onPressed: () async {
                 log('Connecting to device: ${identifier.value}');
-                polar.connectToDevice(identifier.value);
-                // streamWhenReady();
+                await polar.connectToDevice(identifier.value);
               },
             ),
           ],
@@ -129,70 +120,84 @@ class _PolarListPageState extends State<PolarListPage>
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    await ExternalStoragePermissionHandler
-                        .requestExternalStoragePermissions();
+                    await polar.setLocalTime(identifier.value, DateTime.now());
+
+                    final offlineRecordingStatus =
+                        await polar.getOfflineRecordingStatus(identifier.value);
+
+                    if (!offlineRecordingStatus.contains(PolarDataType.ppi)) {
+                      await polar.startOfflineRecording(
+                        identifier.value,
+                        PolarDataType.ppi,
+                        settings: PolarSensorSetting(<PolarSettingType, int>{}),
+                      );
+                    }
+
+                    log('Start Offline Recording');
                   },
-                  child: const Text('Export database'),
+                  child: const Text('Start Offline Recording'),
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    await DataHandler.clearDatabase();
-                    log('Database cleared.');
+                    final offlineRecordingsType =
+                        await polar.getOfflineRecordingStatus(identifier.value);
+
+                    for (final recordingType in offlineRecordingsType) {
+                      if (recordingType == PolarDataType.ppi) {
+                        await polar.stopOfflineRecording(
+                          identifier.value,
+                          PolarDataType.ppi,
+                        );
+                      }
+                    }
+                    log('Stop Offline Recording');
                   },
-                  child: const Text('Clear Database'),
+                  child: const Text('Stop Offline Recording'),
                 ),
-                // ElevatedButton(
-                //   onPressed: () async {
-                //     // Request recording settings
-                //     var settings = await polar.requestOfflineRecordingSettings(
-                //         identifier.value, PolarDataType.acc);
+                ElevatedButton(
+                  onPressed: () async {
+                    var recordings =
+                        await polar.listOfflineRecordings(identifier.value);
 
-                //     // Start offline recording (with optional encryption)
-                //     await polar.startOfflineRecording(
-                //         identifier.value, PolarDataType.acc,
-                //         settings: settings);
+                    log('List Offline Recordings');
+                    for (var r in recordings) {
+                      log(r.toJson().toString());
+                    }
 
-                //     log('Start Offline Recording');
-                //   },
-                //   child: const Text('Start Offline Recording'),
-                // ),
-                // ElevatedButton(
-                //   onPressed: () async {
-                //     // Stop recording
-                //     final status =
-                //         await polar.getOfflineRecordingStatus(identifier.value);
+                    if (recordings.isNotEmpty) {
+                      for (final r in recordings) {
+                        if (r.type == PolarDataType.ppi) {
+                          final data = await polar.getOfflinePpiRecord(
+                              identifier.value, r);
+                          for (var s in data!.data.samples) {
+                            debugPrint(
+                                '(HR: ${s.hr}), (PPI: ${s.ppi}), (blockerBit: ${s.blockerBit}), (errorEstimate: ${s.errorEstimate}), (skinContactStatus: ${s.skinContactStatus})');
+                          }
+                        }
+                      }
+                    }
+                  },
+                  child: const Text('List Offline Recordings'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    var recordings =
+                        await polar.listOfflineRecordings(identifier.value);
 
-                //     log('Get Recording Statis ${status.toString()}');
-                //   },
-                //   child: const Text('Get Recording Status'),
-                // ),
-                // ElevatedButton(
-                //   onPressed: () async {
-                //     // Stop recording
-                //     await polar.stopOfflineRecording(
-                //         identifier.value, PolarDataType.acc);
-
-                //     log('Stop Offline Recording');
-                //   },
-                //   child: const Text('Stop Offline Recording'),
-                // ),
-                // ElevatedButton(
-                //   onPressed: () async {
-                //     // Stop recording
-                //     var recordings =
-                //         await polar.listOfflineRecordings(identifier.value);
-
-                //     log('List Offline Recordings');
-                //     recordings.forEach((r) => log(r.toJson().toString()));
-
-                //     if (recordings.isNotEmpty) {
-                //       final record = await polar.getOfflineAccRecord(
-                //           identifier.value, recordings[0]);
-                //       print("Got here!");
-                //     }
-                //   },
-                //   child: const Text('List Offline Recordings'),
-                // ),
+                    if (recordings.isNotEmpty) {
+                      for (final r in recordings) {
+                        await polar.removeOfflineRecord(identifier.value, r);
+                      }
+                    }
+                  },
+                  child: const Text('Remove Offline Recordings'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    logs.value = IList();
+                  },
+                  child: const Text('Clear logs!'),
+                ),
                 Expanded(
                   child: ListView(
                     padding: const EdgeInsets.all(10),
@@ -208,126 +213,7 @@ class _PolarListPageState extends State<PolarListPage>
     );
   }
 
-  void streamWhenReady() async {
-    await polar.sdkFeatureReady.firstWhere(
-      (e) =>
-          e.identifier == identifier.value &&
-          e.feature == PolarSdkFeature.onlineStreaming,
-    );
-
-    final availableTypes =
-        await polar.getAvailableOnlineStreamDataTypes(identifier.value);
-
-    if (availableTypes.contains(PolarDataType.acc)) {
-      polar.startAccStreaming(identifier.value).listen((e) {
-        final currentTimestamp = DateTime.now().millisecondsSinceEpoch;
-        final latestSampleTimestamp =
-            e.samples.last.timeStamp.millisecondsSinceEpoch;
-
-        for (var sample in e.samples) {
-          final timeDifference =
-              latestSampleTimestamp - sample.timeStamp.millisecondsSinceEpoch;
-          final adjustedTimestamp = currentTimestamp - timeDifference;
-
-          DataHandler.addAccData(adjustedTimestamp, sample.x / 1000,
-              sample.y / 1000, sample.z / 1000);
-          // log('ACC: X ${sample.x}, Y ${sample.y}, Z ${sample.z}, Adjusted Time: $adjustedTimestamp');
-        }
-      });
-    }
-
-    if (availableTypes.contains(PolarDataType.ppi)) {
-      polar.startPpiStreaming(identifier.value).listen((e) {
-        // Get the baseline timestamp from the current time
-        final baselineTimestamp = DateTime.now().millisecondsSinceEpoch;
-
-        // Initialize cumulative time offset
-        int cumulativePpiOffset = 0;
-
-        // Temporary list to store adjusted samples in forward-accumulating order
-        final List<Map<String, dynamic>> tempSamples = [];
-
-        for (var sample in e.samples) {
-          // Add the sample's PPI interval to the cumulative offset
-          cumulativePpiOffset += sample.ppi;
-
-          // Calculate the sample's adjusted timestamp
-          final adjustedTimestamp = baselineTimestamp - cumulativePpiOffset;
-
-          // Save the adjusted data in the temporary list
-          tempSamples.add({
-            'timestamp': adjustedTimestamp,
-            'ppi': sample.ppi,
-            'hr': sample.hr,
-          });
-        }
-
-        // Insert each sample in reverse order (oldest to newest)
-        for (var sampleData in tempSamples.reversed) {
-          DataHandler.addHrData(
-            sampleData['timestamp'] as int,
-            sampleData['ppi'] as int,
-            sampleData['hr'] as int?,
-          );
-          print(
-              'PPI: ${sampleData['ppi']}, HR: ${sampleData['hr']}, Adjusted Time: ${sampleData['timestamp']}');
-        }
-      });
-    }
-  }
-
-  Future<void> handleRecordingAction(RecordingAction action) async {
-    switch (action) {
-      case RecordingAction.start:
-        log('Starting recording');
-        await polar.startRecording(
-          identifier.value,
-          exerciseId: const Uuid().v4(),
-          interval: RecordingInterval.interval_1s,
-          sampleType: SampleType.rr,
-        );
-        log('Started recording');
-        break;
-      case RecordingAction.stop:
-        log('Stopping recording');
-        await polar.stopRecording(identifier.value);
-        log('Stopped recording');
-        break;
-      case RecordingAction.status:
-        log('Getting recording status');
-        final status = await polar.requestRecordingStatus(identifier.value);
-        log('Recording status: $status');
-        break;
-      case RecordingAction.list:
-        log('Listing recordings');
-        final entries = await polar.listExercises(identifier.value);
-        log('Recordings: $entries');
-        exerciseEntry = entries.first;
-        break;
-      case RecordingAction.fetch:
-        log('Fetching recording');
-        if (exerciseEntry == null) {
-          log('Exercises not yet listed');
-          await handleRecordingAction(RecordingAction.list);
-        }
-        final entry =
-            await polar.fetchExercise(identifier.value, exerciseEntry!);
-        log('Fetched recording: $entry');
-        break;
-      case RecordingAction.remove:
-        log('Removing recording');
-        if (exerciseEntry == null) {
-          log('No exercise to remove. Try calling list first.');
-          return;
-        }
-        await polar.removeExercise(identifier.value, exerciseEntry!);
-        log('Removed recording');
-        break;
-    }
-  }
-
   void log(String log) {
-    debugPrint(log);
     logs.value = logs.value.add(log);
   }
 }
