@@ -45,8 +45,8 @@ class _PolarListPageState extends State<PolarListPage>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
       // Flush remaining data when the app goes to the background or is about to close
-      DataHandler.flushData();
-      await polar.disconnectFromDevice(identifier.value);
+      // DataHandler.flushData();
+      // await polar.disconnectFromDevice(identifier.value);
     }
   }
 
@@ -103,8 +103,10 @@ class _PolarListPageState extends State<PolarListPage>
                         .requestBluetoothPermissions();
 
                     polar.searchForDevice().listen((e) {
-                      identifier.value = e.deviceId;
-                      log('Found device in scan: ${e.deviceId}');
+                      if (e.deviceId == 'E985E828') {
+                        identifier.value = e.deviceId;
+                        log('Found device in scan: ${e.deviceId}');
+                      }
                     });
 
                     polar.batteryLevel

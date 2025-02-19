@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:polar/polar.dart';
@@ -17,7 +16,7 @@ Future backgroundJobCallback({
   required bool timeRestricted,
   bool isTestJob = false,
 }) async {
-  const identifier = 'E49E872C';
+  const identifier = 'E985E828';
   final sensorHandler = BackgroundJobSensorHandlerPolar(identifier, Polar());
 
   try {

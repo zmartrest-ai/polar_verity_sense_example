@@ -2,6 +2,12 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        flatDir {
+            dirs '../libs/', '../', "$rootDir/libs" // Folders to look for jar & aar libraries
+        }
+        maven {
+            url "${project(':background_fetch').projectDir}/libs"
+        }
     }
 }
 

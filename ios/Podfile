@@ -33,9 +33,6 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  # Manually add the PolarBleSdk pod
-  pod 'PolarBleSdk', :git => 'https://github.com/polarofficial/polar-ble-sdk.git', :tag => '5.14.0'
-
   target 'RunnerTests' do
     inherit! :search_paths
   end

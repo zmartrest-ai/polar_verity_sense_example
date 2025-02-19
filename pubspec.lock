@@ -357,7 +357,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: a87f57d2f73c352eac25d61d90ebe81d3514884a
+      resolved-ref: fa26b8b1610825a40c36f0f8da7e5c16a6402d6b
       url: "https://github.com/abbjetmus/polar.git"
     source: git
     version: "7.5.1"
