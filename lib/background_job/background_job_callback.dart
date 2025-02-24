@@ -26,6 +26,12 @@ Future backgroundJobCallback({
 
     debugPrint('Connect Completed');
 
+    await sensor.sdkFeatureReady.firstWhere(
+      (e) =>
+          e.identifier == identifier &&
+          e.feature == PolarSdkFeature.offlineRecording,
+    );
+
     final offlineRecordingsType =
         await sensor.getOfflineRecordingStatus(identifier);
 

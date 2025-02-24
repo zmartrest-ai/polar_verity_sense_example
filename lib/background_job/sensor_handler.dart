@@ -42,8 +42,9 @@ class BackgroundJobSensorHandlerPolar {
     _connectCompleter = Completer<Polar>();
 
     try {
-      await polar.connectToDevice(sensorAddress, requestPermissions: false);
       _setupListeners();
+
+      await polar.connectToDevice(sensorAddress, requestPermissions: false);
 
       return await _connectCompleter!.future.timeout(
         timeLimit,
