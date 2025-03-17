@@ -1,16 +1,35 @@
-# polar_variety_sense_example
+# Background Job Example
 
-A new Flutter project.
+A minimal Flutter example to test background job functionality.
+
+## Overview
+
+This project demonstrates how to implement background jobs in Flutter using:
+
+- **Workmanager** for Android
+- **BackgroundFetch** for iOS
+
+## Features
+
+- Simple UI to trigger a test background job
+- Periodic background tasks (every 15 minutes)
+- One-off background tasks
+- Debug logging
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+1. Clone the repository
+2. Run `flutter pub get` to install dependencies
+3. Run the app on an Android or iOS device
+4. Press the "Run Test Background Job" button to trigger a one-off background job
 
-A few resources to get you started if this is your first Flutter project:
+## Implementation Details
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- `lib/main.dart`: Main application entry point and UI
+- `lib/background_job/background_job.dart`: Background job implementation
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Notes
+
+- On Android, background jobs are implemented using the Workmanager plugin
+- On iOS, background jobs are implemented using the BackgroundFetch plugin
+- Background jobs have platform-specific limitations and behaviors

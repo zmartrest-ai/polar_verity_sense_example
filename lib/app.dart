@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:polar_variety_sense_example/behavior/no_glow_on_scroll_behavior.dart';
-import 'package:polar_variety_sense_example/pages/polar_list_page.dart';
+import 'package:polar_variety_sense_example/pages/example.dart';
 
 /// The Widget that configures your application.
 class MyApp extends StatelessWidget {
@@ -35,22 +35,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      home: const PolarListPage(),
-      // Define a function to handle named routes in order to support
-      // Flutter web url navigation and deep linking.
-      onGenerateRoute: (RouteSettings routeSettings) {
-        return MaterialPageRoute<void>(
-          settings: routeSettings,
-          builder: (BuildContext context) {
-            switch (routeSettings.name) {
-              case PolarListPage.routeName:
-                return const PolarListPage();
-              default:
-                return const PolarListPage();
-            }
-          },
-        );
-      },
+      home: const Example(),
       builder: (context, child) {
         return ScrollConfiguration(
           behavior: NoGlowOnScrollBehavior(),

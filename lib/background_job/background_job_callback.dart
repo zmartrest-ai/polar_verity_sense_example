@@ -32,39 +32,11 @@ Future backgroundJobCallback({
           e.feature == PolarSdkFeature.offlineRecording,
     );
 
-    final offlineRecordingsType =
-        await sensor.getOfflineRecordingStatus(identifier);
+    debugPrint('SDK Feature Ready Completed');
 
-    for (final recordingType in offlineRecordingsType) {
-      if (recordingType == PolarDataType.ppi) {
-        await sensor.stopOfflineRecording(
-          identifier,
-          PolarDataType.ppi,
-        );
-      }
-    }
-    debugPrint('Stop Offline Recording Completed');
+    await sensor.disconnectFromDevice(identifier);
 
-    var recordings = await sensor.listOfflineRecordings(identifier);
-
-    for (var r in recordings) {
-      debugPrint(r.toJson().toString());
-    }
-
-    if (recordings.isNotEmpty) {
-      for (final r in recordings) {
-        if (r.type == PolarDataType.ppi) {
-          final data = await sensor.getOfflinePpiRecord(identifier, r);
-          for (var s in data!.data.samples) {
-            debugPrint(
-                '(HR: ${s.hr}), (PPI: ${s.ppi}), (blockerBit: ${s.blockerBit}), (errorEstimate: ${s.errorEstimate}), (skinContactStatus: ${s.skinContactStatus})');
-          }
-        }
-        await sensor.removeOfflineRecord(identifier, r);
-      }
-    }
-
-    debugPrint('List Offline Recordings And Removed Completed');
+    debugPrint('Disconnect Completed');
   } catch (e) {
     debugPrint('exception in background task: $e');
   } finally {
